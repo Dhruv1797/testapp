@@ -39,12 +39,14 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk apk-temp/versions/app-${TIMESTAMP}.apk
 
       - name: Commit & Push APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apk-temp
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           git add versions/
           git commit -m "Add APK: app-$(date +'%Y-%m-%d %I:%M %p').apk" || echo "Nothing to commit"
           git push origin app-version-apps
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
