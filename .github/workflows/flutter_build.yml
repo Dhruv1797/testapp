@@ -1,0 +1,45 @@
+name: Build & Push APK to app-versions
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Prepare APK directory
+        run: |
+          mkdir apk_output
+          cp build/app/outputs/flutter-apk/app-release.apk apk_output/app-${{ github.run_number }}.apk
+
+      - name: Commit & Push to app-versions branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B app-versions
+          mkdir -p versions/
+          mv apk_output/app-${{ github.run_number }}.apk versions/
+
+          git add versions/
+          git commit -m "APK Build from run #${{ github.run_number }}"
+          git push origin app-versions --force
