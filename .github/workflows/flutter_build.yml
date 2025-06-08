@@ -32,6 +32,8 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk apk_output/app-${{ github.run_number }}.apk
 
       - name: Commit & Push to app-versions branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -41,5 +43,7 @@ jobs:
           mv apk_output/app-${{ github.run_number }}.apk versions/
 
           git add versions/
-          git commit -m "APK Build from run #${{ github.run_number }}"
+          git commit -m "APK Build from run #${{ github.run_number }}" || echo "Nothing to commit"
+
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           git push origin app-versions --force
