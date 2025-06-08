@@ -28,8 +28,8 @@ jobs:
 
       - name: Clone Versions Branch
         run: |
-          git clone --single-branch --branch app-versions https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp || (
-            mkdir apk-temp && cd apk-temp && git init && git checkout -b app-versions
+          git clone --single-branch --branch app-version-apps https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp || (
+            mkdir apk-temp && cd apk-temp && git init && git checkout -b app-version-apps
           )
 
       - name: Save APK
@@ -45,6 +45,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add versions/
           git commit -m "Add APK: app-$(date +'%Y-%m-%d %I:%M %p').apk" || echo "Nothing to commit"
-          git push origin app-versions
+          git push origin app-version-apps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
