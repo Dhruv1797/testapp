@@ -1,4 +1,4 @@
-name: Build & Push APK to app-versions
+name: APK Auto Builder
 
 on:
   push:
@@ -10,40 +10,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.2'
 
-      - name: Install dependencies
+      - name: Get Packages
         run: flutter pub get
 
-      - name: Build release APK
+      - name: Build APK
         run: flutter build apk --release
 
-      - name: Prepare APK directory
+      - name: Clone Versions Branch
         run: |
-          mkdir apk_output
-          cp build/app/outputs/flutter-apk/app-release.apk apk_output/app-${{ github.run_number }}.apk
+          git clone --single-branch --branch app-versions https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp || (
+            mkdir apk-temp && cd apk-temp && git init && git checkout -b app-versions
+          )
 
-      - name: Commit & Push to app-versions branch
+      - name: Save APK
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%I-%M-%p")
+          mkdir -p apk-temp/versions
+          cp build/app/outputs/flutter-apk/app-release.apk apk-temp/versions/app-${TIMESTAMP}.apk
+
+      - name: Commit & Push APK
+        run: |
+          cd apk-temp
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions/
+          git commit -m "Add APK: app-$(date +'%Y-%m-%d %I:%M %p').apk" || echo "Nothing to commit"
+          git push origin app-versions
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          git checkout -B app-versions
-          mkdir -p versions/
-          mv apk_output/app-${{ github.run_number }}.apk versions/
-
-          git add versions/
-          git commit -m "APK Build from run #${{ github.run_number }}" || echo "Nothing to commit"
-
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          git push origin app-versions --force
