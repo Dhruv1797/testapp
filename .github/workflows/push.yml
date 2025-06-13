@@ -68,7 +68,7 @@ jobs:
           git push --force origin version
   
   unsigned:
-    name: Unsigned APK Build
+    name: Unsigned Android Build
     needs: common
     runs-on: ubuntu-latest
     steps:
