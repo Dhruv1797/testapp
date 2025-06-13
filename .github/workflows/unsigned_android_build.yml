@@ -1,4 +1,4 @@
-name: Unsigned Apk Generator
+name: Unsigned Android Build Apk
 
 on:
   push:
@@ -38,11 +38,11 @@ jobs:
             git rm -rf . || true
           fi
 
-      - name: Copy Unsigned APK
+      - name: Store Apk
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk apk-temp/unsigned.apk
 
-      - name: Commit & Push Unsigned APK
+      - name: Commit & Push APK
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
