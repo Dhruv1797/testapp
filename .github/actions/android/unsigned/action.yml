@@ -38,7 +38,7 @@ runs:
     - name: Clone or Init apk-unsigned Branch
       shell: bash
       run: |
-        git clone --depth=1 https://x-access-token:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
+        git clone https://x-access-token:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
         cd apk-temp
         if git ls-remote --exit-code --heads origin apk-unsigned; then
           git checkout apk-unsigned
