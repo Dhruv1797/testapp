@@ -9,6 +9,9 @@ inputs:
   VERSION_CODE:
     description: "Version code from common build"
     required: true
+  GITHUB_TOKEN:
+    description: "GitHub token passed from workflow"
+    required: true
 
 runs:
   using: "composite"
@@ -31,7 +34,7 @@ runs:
     - name: Setup Git and Clone or Init Branch
       shell: bash
       run: |
-        git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
+        git clone https://x-access-token:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
         cd apk-temp
         if git ls-remote --exit-code --heads origin apk-unsigned; then
           git checkout apk-unsigned
@@ -48,7 +51,7 @@ runs:
     - name: Commit & Push Unsigned APK
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
       run: |
         cd apk-temp
         git config user.name "github-actions[bot]"

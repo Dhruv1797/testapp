@@ -80,6 +80,7 @@ jobs:
         with:
           VERSION_NAME: ${{ needs.common.outputs.VERSION_NAME }}
           VERSION_CODE: ${{ needs.common.outputs.VERSION_CODE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   android:
     name: Android Flutter Build
