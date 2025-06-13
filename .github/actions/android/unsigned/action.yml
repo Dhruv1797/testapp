@@ -1,0 +1,58 @@
+name: "Unsigned Android Build Workflow"
+
+description: "Build unsigned APK and push to apk-unsigned branch"
+
+inputs:
+  VERSION_NAME:
+    description: "Version name from common build"
+    required: true
+  VERSION_CODE:
+    description: "Version code from common build"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version-file: pubspec.yaml
+        cache: true
+
+    - name: Fetch Dependencies
+      shell: bash
+      run: flutter pub get
+
+    - name: Build Unsigned APK
+      shell: bash
+      run: |
+        flutter build apk --release --build-name ${{ inputs.VERSION_NAME }} --build-number ${{ inputs.VERSION_CODE }}
+
+    - name: Setup Git and Clone or Init Branch
+      shell: bash
+      run: |
+        git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
+        cd apk-temp
+        if git ls-remote --exit-code --heads origin apk-unsigned; then
+          git checkout apk-unsigned
+        else
+          git checkout --orphan apk-unsigned
+          git rm -rf . || true
+        fi
+
+    - name: Store Unsigned APK
+      shell: bash
+      run: |
+        cp build/app/outputs/flutter-apk/app-release.apk apk-temp/unsigned.apk
+
+    - name: Commit & Push Unsigned APK
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd apk-temp
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add unsigned.apk
+        git commit -m "Update unsigned APK with version ${{ inputs.VERSION_NAME }} (${{ inputs.VERSION_CODE }})" || echo "Nothing to commit"
+        git push -u origin apk-unsigned
