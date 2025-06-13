@@ -72,9 +72,6 @@ jobs:
     needs: common
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Main
-        uses: actions/checkout@v4
-
       - name: Unsigned APK Workflow
         uses: ./.github/actions/android/unsigned
         with:
