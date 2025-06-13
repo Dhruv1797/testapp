@@ -1,4 +1,4 @@
-name: APK Auto Builder
+name: Unsigned Apk Generator
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.2'
+          flutter-version: '3.29.2'
 
       - name: Get Packages
         run: flutter pub get
@@ -26,27 +26,28 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Clone Versions Branch
+      - name: Setup Git and Clone or Init Branch
         run: |
-          git clone --single-branch --branch app-version-apps https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp || (
-            mkdir apk-temp && cd apk-temp && git init && git checkout -b app-version-apps
-          )
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git apk-temp
+          cd apk-temp
+          if git ls-remote --exit-code --heads origin apk-unsigned; then
+            git checkout apk-unsigned
+          else
+            git checkout --orphan apk-unsigned
+            git rm -rf . || true
+          fi
 
-      - name: Save APK
+      - name: Copy Unsigned APK
         run: |
-          TIMESTAMP=$(date +"%Y-%m-%d_%I-%M-%p")
-          mkdir -p apk-temp/versions
-          cp build/app/outputs/flutter-apk/app-release.apk apk-temp/versions/app-${TIMESTAMP}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk apk-temp/unsigned.apk
 
-      - name: Commit & Push APK
+      - name: Commit & Push Unsigned APK
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apk-temp
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          git add versions/
-          git commit -m "Add APK: app-$(date +'%Y-%m-%d %I:%M %p').apk" || echo "Nothing to commit"
-          git push origin app-version-apps
-
+          git add unsigned.apk
+          git commit -m "Update unsigned APK" || echo "Nothing to commit"
+          git push -u origin apk-unsigned
