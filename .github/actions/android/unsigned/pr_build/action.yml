@@ -23,8 +23,6 @@ jobs:
           flutter-version-file: pubspec.yaml
           cache: true
 
-
-
       - name: Fetch Dependencies
         run: flutter pub get
 
