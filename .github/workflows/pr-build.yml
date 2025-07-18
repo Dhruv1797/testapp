@@ -22,3 +22,11 @@ jobs:
 
       - name: PR Build Workflow
         uses: ./.github/actions/android/unsigned/pr_build
+        with:
+          pr_number: ${{ github.event.number }}
+          run_id: ${{ github.run_id }}
+          repository: ${{ github.repository }}
+          pr_head_sha: ${{ github.event.pull_request.head.sha }}
+          pr_head_ref: ${{ github.event.pull_request.head.ref }}
+          github_server_url: ${{ github.server_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
