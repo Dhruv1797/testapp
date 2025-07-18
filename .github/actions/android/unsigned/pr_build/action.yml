@@ -1,0 +1,132 @@
+name: "PR Build and Comment"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+jobs:
+  build-and-comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+
+
+      - name: Fetch Dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: |
+          flutter build apk --release
+          if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            echo "APK build failed"
+            exit 1
+          fi
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ios --release --no-codesign
+          # Create IPA from app bundle
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos && zip -r ../../../magic-epaper-unsigned.ipa Payload/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: magic-epaper-apk-pr-${{ github.event.number }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: magic-epaper-ipa-pr-${{ github.event.number }}
+          path: magic-epaper-unsigned.ipa
+          retention-days: 30
+
+      - name: Get Artifact URLs
+        id: artifacts
+        run: |
+          # Get the run ID for artifact URLs
+          RUN_ID=${{ github.run_id }}
+          REPO=${{ github.repository }}
+          
+          # Construct artifact download URLs
+          APK_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
+          IPA_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
+          
+          echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
+          echo "IPA_URL=$IPA_URL" >> $GITHUB_OUTPUT
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '**Build Artifacts Ready**'
+
+      - name: Create or update PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            **Build Artifacts Ready**
+            
+            The build has completed successfully! Download the latest builds below:
+            
+            ## Download Links
+            
+            | Platform | Download |
+            |----------|----------|
+            | **Android APK** | [Download APK](${{ steps.artifacts.outputs.APK_URL }}) |
+            | **iOS IPA** | [Download IPA](${{ steps.artifacts.outputs.IPA_URL }}) |
+            
+            ## Build Info
+            - **Commit:** `${{ github.event.pull_request.head.sha }}`
+            - **Branch:** `${{ github.event.pull_request.head.ref }}`
+            
+            ## Installation Instructions
+            
+            ### Android APK
+            1. Download the APK file
+            2. Enable "Install from Unknown Sources" in your device settings
+            3. Install the APK file
+            
+            ### iOS IPA
+            1. Download the IPA file
+            2. Use tools like AltStore, Sideloadly, or Xcode to install
+            3. Note: This is an unsigned build for testing purposes
+            
+            ---
+            
+            <sub>Built by GitHub Actions | Last updated: $(date -u)</sub>
+
+      - name: Build status comment on failure
+        if: failure()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            **Build Failed**
+            
+            The build process failed for this PR. Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+            
+            **Failed at:** $(date -u)
+            **Commit:** `${{ github.event.pull_request.head.sha }}`

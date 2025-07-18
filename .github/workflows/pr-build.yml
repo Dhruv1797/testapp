@@ -1,0 +1,24 @@
+name: Magic Epaper PR CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  pr_build:
+    name: PR Build and Comment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: PR Build Workflow
+        uses: ./.github/actions/android/unsigned/pr_build
