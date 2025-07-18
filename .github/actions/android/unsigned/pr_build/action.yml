@@ -23,7 +23,7 @@ inputs:
   github_token:
     description: "GitHub token for API access"
     required: true
-
+ 
 
 runs:
   using: "composite"
