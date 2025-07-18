@@ -24,6 +24,7 @@ inputs:
     description: "GitHub token for API access"
     required: true
 
+
 runs:
   using: "composite"
   steps:
