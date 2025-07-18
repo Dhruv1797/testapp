@@ -50,14 +50,37 @@ runs:
     - name: Build iOS IPA
       shell: bash
       run: |
-        # Build iOS app (will create .app bundle)
-        flutter build ios
+        # Create export options plist for unsigned build
+        cat > ios/ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>method</key>
+          <string>development</string>
+          <key>signingStyle</key>
+          <string>manual</string>
+          <key>stripSwiftSymbols</key>
+          <true/>
+          <key>uploadBitcode</key>
+          <false/>
+          <key>uploadSymbols</key>
+          <false/>
+        </dict>
+        </plist>
+        EOF
         
-        # Create IPA from app bundle
-        mkdir -p build/ios/iphoneos/Payload
-        cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
-        cd build/ios/iphoneos && zip -r ../../../magic-epaper-unsigned.ipa Payload/
- 
+        # Build iOS without code signing
+        cd ios
+        xcodebuild clean -workspace Runner.xcworkspace -scheme Runner -configuration Release
+        xcodebuild archive -workspace Runner.xcworkspace -scheme Runner -configuration Release -archivePath build/Runner.xcarchive -allowProvisioningUpdates CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+        
+        # Export unsigned IPA
+        xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ -exportOptionsPlist ExportOptions.plist CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+        
+        # Move the IPA to the expected location
+        find build -name "*.ipa" -exec mv {} ../magic-epaper-unsigned.ipa \;
+
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
