@@ -117,24 +117,12 @@ runs:
         echo "WORKFLOW_URL=$WORKFLOW_URL" >> $GITHUB_OUTPUT
         echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
 
-    - name: Find existing comment
-      if: inputs.pr_number != '' && inputs.github_token != ''
-      uses: peter-evans/find-comment@v3
-      id: find-comment
-      with:
-        token: ${{ inputs.github_token }}
-        issue-number: ${{ inputs.pr_number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: 'Build Status'
- 
-    - name: Create or update PR comment
+    - name: Create PR comment
       if: inputs.pr_number != '' && inputs.github_token != ''
       uses: peter-evans/create-or-update-comment@v4
       with:
         token: ${{ inputs.github_token }}
-        comment-id: ${{ steps.find-comment.outputs.comment-id }}
         issue-number: ${{ inputs.pr_number }}
-        edit-mode: replace
         body: |
           ## Build Status
           
