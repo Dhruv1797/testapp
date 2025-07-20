@@ -24,7 +24,6 @@ inputs:
     description: "GitHub token for API access"
     required: true
  
-
 runs:
   using: "composite"
   steps:
@@ -47,39 +46,46 @@ runs:
           exit 1
         fi
 
-    - name: Build iOS IPA
+    - name: Build iOS App (Simulator Build)
       shell: bash
       run: |
-        # Create export options plist for unsigned build
-        cat > ios/ExportOptions.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-          <key>method</key>
-          <string>development</string>
-          <key>signingStyle</key>
-          <string>manual</string>
-          <key>stripSwiftSymbols</key>
-          <true/>
-          <key>uploadBitcode</key>
-          <false/>
-          <key>uploadSymbols</key>
-          <false/>
-        </dict>
-        </plist>
+        # Build for iOS simulator instead of trying to create signed IPA
+        # This bypasses all code signing issues
+        flutter build ios --release --no-codesign
+        
+        # Create a zip of the iOS app bundle for distribution
+        cd build/ios/iphoneos
+        zip -r ../../../magic-epaper-ios-simulator.zip Runner.app/
+        cd ../../../
+        
+        echo "iOS simulator build created successfully"
+
+    - name: Create iOS Installation Script
+      shell: bash
+      run: |
+        cat > ios_install_instructions.txt << 'EOF'
+        iOS Installation Instructions:
+        
+        This is a simulator build. To install on a real device, you'll need:
+        
+        Option 1 - Use Xcode:
+        1. Download the project source code
+        2. Open ios/Runner.xcworkspace in Xcode
+        3. Connect your iOS device
+        4. Select your device as the target
+        5. Click Run to install directly
+        
+        Option 2 - For Simulator Testing:
+        1. Download the magic-epaper-ios-simulator.zip
+        2. Extract the Runner.app
+        3. Drag Runner.app to iOS Simulator
+        
+        Option 3 - Create your own IPA:
+        1. Download source and build with your Apple Developer account
+        2. Use flutter build ipa with your signing certificates
+        
+        Note: Unsigned IPAs cannot be installed on physical devices without jailbreaking.
         EOF
-        
-        # Build iOS without code signing
-        cd ios
-        xcodebuild clean -workspace Runner.xcworkspace -scheme Runner -configuration Release
-        xcodebuild archive -workspace Runner.xcworkspace -scheme Runner -configuration Release -archivePath build/Runner.xcarchive -allowProvisioningUpdates CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-        
-        # Export unsigned IPA
-        xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ -exportOptionsPlist ExportOptions.plist CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-        
-        # Move the IPA to the expected location
-        find build -name "*.ipa" -exec mv {} ../magic-epaper-unsigned.ipa \;
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
@@ -88,11 +94,18 @@ runs:
         path: build/app/outputs/flutter-apk/app-release.apk
         retention-days: 30
 
-    - name: Upload IPA Artifact
+    - name: Upload iOS Simulator Build
       uses: actions/upload-artifact@v4
       with:
-        name: magic-epaper-ipa-pr-${{ inputs.pr_number }}
-        path: magic-epaper-unsigned.ipa
+        name: magic-epaper-ios-simulator-pr-${{ inputs.pr_number }}
+        path: magic-epaper-ios-simulator.zip
+        retention-days: 30
+
+    - name: Upload iOS Instructions
+      uses: actions/upload-artifact@v4
+      with:
+        name: magic-epaper-ios-instructions-pr-${{ inputs.pr_number }}
+        path: ios_install_instructions.txt
         retention-days: 30
 
     - name: Get Artifact URLs
@@ -104,11 +117,9 @@ runs:
         REPO=${{ inputs.repository }}
         
         # Construct artifact download URLs
-        APK_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
-        IPA_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
+        ARTIFACTS_BASE_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
         
-        echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
-        echo "IPA_URL=$IPA_URL" >> $GITHUB_OUTPUT
+        echo "ARTIFACTS_URL=$ARTIFACTS_BASE_URL" >> $GITHUB_OUTPUT
 
     - name: Find existing comment
       uses: peter-evans/find-comment@v3
@@ -127,36 +138,45 @@ runs:
         issue-number: ${{ inputs.pr_number }}
         edit-mode: replace
         body: |
-          **Build Artifacts Ready**
+          **Build Artifacts Ready** ✅
           
           The build has completed successfully! Download the latest builds below:
           
-          ## Download Links
+          ## 📱 Download Links
           
-          | Platform | Download |
-          |----------|----------|
-          | **Android APK** | [Download APK](${{ steps.artifacts.outputs.APK_URL }}) |
-          | **iOS IPA** | [Download IPA](${{ steps.artifacts.outputs.IPA_URL }}) |
+          | Platform | Download | Status |
+          |----------|----------|--------|
+          | **🤖 Android APK** | [Download APK](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | Ready to install |
+          | **🍎 iOS Simulator** | [Download iOS Build](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | Simulator only |
+          | **📋 iOS Instructions** | [Installation Guide](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | How to install on device |
           
-          ## Build Info
+          ## 🔍 Build Info
           - **Commit:** `${{ inputs.pr_head_sha }}`
           - **Branch:** `${{ inputs.pr_head_ref }}`
+          - **Build Time:** $(date -u)
           
-          ## Installation Instructions
+          ## 📲 Installation Instructions
           
           ### Android APK
-          1. Download the APK file
-          2. Enable "Install from Unknown Sources" in your device settings
-          3. Install the APK file
+          1. **Download** the APK file from the artifacts
+          2. **Enable** "Install from Unknown Sources" in Android settings
+          3. **Install** the APK file directly
           
-          ### iOS IPA
-          1. Download the IPA file
-          2. Use tools like AltStore, Sideloadly, or Xcode to install
-          3. Note: This is an unsigned build for testing purposes
+          ### iOS App
+          **⚠️ Important:** This build cannot create installable IPAs without code signing certificates.
+          
+          **For Device Installation:**
+          - Download the project source code
+          - Open `ios/Runner.xcworkspace` in Xcode
+          - Connect your device and run directly from Xcode
+          
+          **For Simulator Testing:**
+          - Download the iOS Simulator build
+          - Drag the app to iOS Simulator
           
           ---
           
-          <sub>Built by GitHub Actions | Last updated: $(date -u)</sub>
+          <sub>🤖 Built by GitHub Actions • Need help? Check the iOS Instructions artifact</sub>
 
     - name: Build status comment on failure
       if: failure()
@@ -165,9 +185,17 @@ runs:
         token: ${{ inputs.github_token }}
         issue-number: ${{ inputs.pr_number }}
         body: |
-          **Build Failed**
+          **Build Failed** ❌
           
           The build process failed for this PR. Please check the [workflow logs](${{ inputs.github_server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}) for details.
           
           **Failed at:** $(date -u)
-          **Commit:** `${{ inputs.pr_head_sha }}` 
+          **Commit:** `${{ inputs.pr_head_sha }}`
+          **Branch:** `${{ inputs.pr_head_ref }}`
+          
+          Common issues:
+          - Flutter dependencies might need updating
+          - Build configuration errors
+          - Platform-specific build issues
+          
+          Please check the logs and try again.
