@@ -1,5 +1,5 @@
 name: "PR Build and Comment"
-description: "Build Flutter app and comment on PR with download links"
+description: "Build Flutter Android APK and comment on PR with download links"
 
 inputs:
   pr_number:
@@ -46,69 +46,12 @@ runs:
           exit 1
         fi
 
-    - name: Build iOS App (Simulator Build)
-      shell: bash
-      run: |
-        # Build for iOS simulator instead of trying to create signed IPA
-        # This bypasses all code signing issues
-        flutter build ios --release --no-codesign
-        
-        # Create a zip of the iOS app bundle for distribution
-        cd build/ios/iphoneos
-        zip -r ../../../magic-epaper-ios-simulator.zip Runner.app/
-        cd ../../../
-        
-        echo "iOS simulator build created successfully"
-
-    - name: Create iOS Installation Script
-      shell: bash
-      run: |
-        cat > ios_install_instructions.txt << 'EOF'
-        iOS Installation Instructions:
-        
-        This is a simulator build. To install on a real device, you'll need:
-        
-        Option 1 - Use Xcode:
-        1. Download the project source code
-        2. Open ios/Runner.xcworkspace in Xcode
-        3. Connect your iOS device
-        4. Select your device as the target
-        5. Click Run to install directly
-        
-        Option 2 - For Simulator Testing:
-        1. Download the magic-epaper-ios-simulator.zip
-        2. Extract the Runner.app
-        3. Drag Runner.app to iOS Simulator
-        
-        Option 3 - Create your own IPA:
-        1. Download source and build with your Apple Developer account
-        2. Use flutter build ipa with your signing certificates
-        
-        Note: Unsigned IPAs cannot be installed on physical devices without jailbreaking.
-        EOF
-
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       id: upload-apk
       with:
         name: magic-epaper-apk-pr-${{ inputs.pr_number }}
         path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
-
-    - name: Upload iOS Simulator Build
-      uses: actions/upload-artifact@v4
-      id: upload-ios
-      with:
-        name: magic-epaper-ios-simulator-pr-${{ inputs.pr_number }}
-        path: magic-epaper-ios-simulator.zip
-        retention-days: 30
-
-    - name: Upload iOS Instructions
-      uses: actions/upload-artifact@v4
-      id: upload-instructions
-      with:
-        name: magic-epaper-ios-instructions-pr-${{ inputs.pr_number }}
-        path: ios_install_instructions.txt
         retention-days: 30
 
     - name: Get Artifact URLs
@@ -119,19 +62,14 @@ runs:
         RUN_ID=${{ inputs.run_id }}
         REPO=${{ inputs.repository }}
         
-        # GitHub doesn't provide direct artifact download URLs
-        # Users need to go to the workflow run page to download
+        # Get workflow URL as fallback
         WORKFLOW_URL="https://github.com/$REPO/actions/runs/$RUN_ID"
         
-        # Get direct artifact URLs from upload-artifact v4 outputs
+        # Get direct artifact URL from upload-artifact v4 output
         APK_URL="${{ steps.upload-apk.outputs.artifact-url }}"
-        IOS_URL="${{ steps.upload-ios.outputs.artifact-url }}"
-        INSTRUCTIONS_URL="${{ steps.upload-instructions.outputs.artifact-url }}"
         
         echo "WORKFLOW_URL=$WORKFLOW_URL" >> $GITHUB_OUTPUT
         echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
-        echo "IOS_URL=$IOS_URL" >> $GITHUB_OUTPUT
-        echo "INSTRUCTIONS_URL=$INSTRUCTIONS_URL" >> $GITHUB_OUTPUT
 
     - name: Find existing comment
       uses: peter-evans/find-comment@v3
@@ -140,7 +78,7 @@ runs:
         token: ${{ inputs.github_token }}
         issue-number: ${{ inputs.pr_number }}
         comment-author: 'github-actions[bot]'
-        body-includes: '**Build Artifacts Ready**'
+        body-includes: 'Build Artifacts Ready'
 
     - name: Create or update PR comment
       uses: peter-evans/create-or-update-comment@v4
@@ -150,40 +88,15 @@ runs:
         issue-number: ${{ inputs.pr_number }}
         edit-mode: replace
         body: |
-          **Build Artifacts Ready** ✅
+          **Build Artifacts Ready**
           
-          The build has completed successfully! Click the direct download links below:
+          The Android build has completed successfully.
           
-          ## 📱 Direct Download Links
+          | Platform | Download Link |
+          |----------|---------------|
+          | Android APK | [Download APK](${{ steps.artifacts.outputs.APK_URL }}) |
           
-          | Platform | Direct Download | Status |
-          |----------|-----------------|--------|
-          | **🤖 Android APK** | [📥 Download APK](${{ steps.artifacts.outputs.APK_URL }}) | Ready to install |
-          | **🍎 iOS Simulator** | [📥 Download iOS Build](${{ steps.artifacts.outputs.IOS_URL }}) | Simulator only |
-          | **📋 iOS Instructions** | [📥 Installation Guide](${{ steps.artifacts.outputs.INSTRUCTIONS_URL }}) | How to install on device |
-          
-          **Alternative:** [View all artifacts in workflow](${{ steps.artifacts.outputs.WORKFLOW_URL }})
-          
-          ## 🔍 Build Info
-          - **Commit:** `${{ inputs.pr_head_sha }}`
-          - **Branch:** `${{ inputs.pr_head_ref }}`
-          - **Build Time:** $(date -u)
-          
-          ## 📲 Quick Installation Guide
-          
-          ### Android APK
-          1. **Click** the APK download link above
-          2. **Enable** "Install from Unknown Sources" in Android settings
-          3. **Install** the downloaded APK file
-          
-          ### iOS App
-          1. **Click** the iOS Instructions download link for detailed steps
-          2. **For device testing:** Use Xcode to run the project directly
-          3. **For simulator:** Download and use the simulator build
-          
-          ---
-          
-          <sub>🤖 Built by GitHub Actions • Direct download links • Artifacts available for 30 days</sub>
+          [View workflow run](${{ steps.artifacts.outputs.WORKFLOW_URL }})
 
     - name: Build status comment on failure
       if: failure()
@@ -192,17 +105,6 @@ runs:
         token: ${{ inputs.github_token }}
         issue-number: ${{ inputs.pr_number }}
         body: |
-          **Build Failed** ❌
+          **Build Failed**
           
-          The build process failed for this PR. Please check the [workflow logs](${{ inputs.github_server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}) for details.
-          
-          **Failed at:** $(date -u)
-          **Commit:** `${{ inputs.pr_head_sha }}`
-          **Branch:** `${{ inputs.pr_head_ref }}`
-          
-          Common issues:
-          - Flutter dependencies might need updating
-          - Build configuration errors
-          - Platform-specific build issues
-          
-          Please check the logs and try again. 
+          The Android APK build failed for this PR. Please check the [workflow logs](${{ inputs.github_server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}) for details.
