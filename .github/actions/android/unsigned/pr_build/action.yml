@@ -89,6 +89,7 @@ runs:
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
+      id: upload-apk
       with:
         name: magic-epaper-apk-pr-${{ inputs.pr_number }}
         path: build/app/outputs/flutter-apk/app-release.apk
@@ -96,6 +97,7 @@ runs:
 
     - name: Upload iOS Simulator Build
       uses: actions/upload-artifact@v4
+      id: upload-ios
       with:
         name: magic-epaper-ios-simulator-pr-${{ inputs.pr_number }}
         path: magic-epaper-ios-simulator.zip
@@ -103,6 +105,7 @@ runs:
 
     - name: Upload iOS Instructions
       uses: actions/upload-artifact@v4
+      id: upload-instructions
       with:
         name: magic-epaper-ios-instructions-pr-${{ inputs.pr_number }}
         path: ios_install_instructions.txt
@@ -116,10 +119,19 @@ runs:
         RUN_ID=${{ inputs.run_id }}
         REPO=${{ inputs.repository }}
         
-        # Construct artifact download URLs
-        ARTIFACTS_BASE_URL="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts"
+        # GitHub doesn't provide direct artifact download URLs
+        # Users need to go to the workflow run page to download
+        WORKFLOW_URL="https://github.com/$REPO/actions/runs/$RUN_ID"
         
-        echo "ARTIFACTS_URL=$ARTIFACTS_BASE_URL" >> $GITHUB_OUTPUT
+        # Get direct artifact URLs from upload-artifact v4 outputs
+        APK_URL="${{ steps.upload-apk.outputs.artifact-url }}"
+        IOS_URL="${{ steps.upload-ios.outputs.artifact-url }}"
+        INSTRUCTIONS_URL="${{ steps.upload-instructions.outputs.artifact-url }}"
+        
+        echo "WORKFLOW_URL=$WORKFLOW_URL" >> $GITHUB_OUTPUT
+        echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
+        echo "IOS_URL=$IOS_URL" >> $GITHUB_OUTPUT
+        echo "INSTRUCTIONS_URL=$INSTRUCTIONS_URL" >> $GITHUB_OUTPUT
 
     - name: Find existing comment
       uses: peter-evans/find-comment@v3
@@ -140,43 +152,38 @@ runs:
         body: |
           **Build Artifacts Ready** ✅
           
-          The build has completed successfully! Download the latest builds below:
+          The build has completed successfully! Click the direct download links below:
           
-          ## 📱 Download Links
+          ## 📱 Direct Download Links
           
-          | Platform | Download | Status |
-          |----------|----------|--------|
-          | **🤖 Android APK** | [Download APK](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | Ready to install |
-          | **🍎 iOS Simulator** | [Download iOS Build](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | Simulator only |
-          | **📋 iOS Instructions** | [Installation Guide](${{ steps.artifacts.outputs.ARTIFACTS_URL }}) | How to install on device |
+          | Platform | Direct Download | Status |
+          |----------|-----------------|--------|
+          | **🤖 Android APK** | [📥 Download APK](${{ steps.artifacts.outputs.APK_URL }}) | Ready to install |
+          | **🍎 iOS Simulator** | [📥 Download iOS Build](${{ steps.artifacts.outputs.IOS_URL }}) | Simulator only |
+          | **📋 iOS Instructions** | [📥 Installation Guide](${{ steps.artifacts.outputs.INSTRUCTIONS_URL }}) | How to install on device |
+          
+          **Alternative:** [View all artifacts in workflow](${{ steps.artifacts.outputs.WORKFLOW_URL }})
           
           ## 🔍 Build Info
           - **Commit:** `${{ inputs.pr_head_sha }}`
           - **Branch:** `${{ inputs.pr_head_ref }}`
           - **Build Time:** $(date -u)
           
-          ## 📲 Installation Instructions
+          ## 📲 Quick Installation Guide
           
           ### Android APK
-          1. **Download** the APK file from the artifacts
+          1. **Click** the APK download link above
           2. **Enable** "Install from Unknown Sources" in Android settings
-          3. **Install** the APK file directly
+          3. **Install** the downloaded APK file
           
           ### iOS App
-          **⚠️ Important:** This build cannot create installable IPAs without code signing certificates.
-          
-          **For Device Installation:**
-          - Download the project source code
-          - Open `ios/Runner.xcworkspace` in Xcode
-          - Connect your device and run directly from Xcode
-          
-          **For Simulator Testing:**
-          - Download the iOS Simulator build
-          - Drag the app to iOS Simulator
+          1. **Click** the iOS Instructions download link for detailed steps
+          2. **For device testing:** Use Xcode to run the project directly
+          3. **For simulator:** Download and use the simulator build
           
           ---
           
-          <sub>🤖 Built by GitHub Actions • Need help? Check the iOS Instructions artifact</sub>
+          <sub>🤖 Built by GitHub Actions • Direct download links • Artifacts available for 30 days</sub>
 
     - name: Build status comment on failure
       if: failure()
