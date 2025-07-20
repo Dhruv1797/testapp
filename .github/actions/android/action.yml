@@ -66,9 +66,6 @@ runs:
         cache: true
         flutter-version-file: pubspec.yaml
 
-    - name: Fetch Dependencies
-      shell: bash
-      run: flutter pub get
       
     - name: Build Android APK/AAB
       shell: bash
