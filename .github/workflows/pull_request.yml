@@ -2,11 +2,8 @@ name: Magic Epaper PR CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    branches:
+      - main
 
 jobs:
   common:
@@ -27,6 +24,14 @@ jobs:
 
       - name: Android Workflow
         uses: ./.github/actions/android
+        with:
+          pr_number: ${{ github.event.pull_request.number }}
+          run_id: ${{ github.run_id }}
+          repository: ${{ github.repository }}
+          pr_head_sha: ${{ github.event.pull_request.head.sha }}
+          pr_head_ref: ${{ github.event.pull_request.head.ref }}
+          github_server_url: ${{ github.server_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   ios:
     name: iOS Flutter Build
@@ -37,26 +42,3 @@ jobs:
 
       - name: iOS Workflow
         uses: ./.github/actions/ios
-
-  pr_build:
-    name: PR Build and Comment
-    needs: [common, android]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      actions: read
-    steps:
-      - name: Checkout PR
-        uses: actions/checkout@v4
-
-      - name: PR Build Workflow
-        uses: ./.github/actions/android/unsigned/pr_build
-        with:
-          pr_number: ${{ github.event.number }}
-          run_id: ${{ github.run_id }}
-          repository: ${{ github.repository }}
-          pr_head_sha: ${{ github.event.pull_request.head.sha }}
-          pr_head_ref: ${{ github.event.pull_request.head.ref }}
-          github_server_url: ${{ github.server_url }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
