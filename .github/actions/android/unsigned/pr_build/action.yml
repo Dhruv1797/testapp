@@ -170,4 +170,4 @@ runs:
           The build process failed for this PR. Please check the [workflow logs](${{ inputs.github_server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}) for details.
           
           **Failed at:** $(date -u)
-          **Commit:** `${{ inputs.pr_head_sha }}`
+          **Commit:** `${{ inputs.pr_head_sha }}` 
