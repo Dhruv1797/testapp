@@ -9,8 +9,38 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  common:
+    name: Common Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Common Workflow
+        uses: ./.github/actions/common
+
+  android:
+    name: Android Flutter Build
+    needs: common
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Android Workflow
+        uses: ./.github/actions/android
+
+  ios:
+    name: iOS Flutter Build
+    needs: common
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: iOS Workflow
+        uses: ./.github/actions/ios
+
   pr_build:
     name: PR Build and Comment
+    needs: [common, android]
     runs-on: ubuntu-latest
     permissions:
       contents: read
