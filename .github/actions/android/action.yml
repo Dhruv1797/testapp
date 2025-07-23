@@ -33,18 +33,6 @@ inputs:
     description: "Repository name"
     required: false
     default: ''
-  pr_head_sha:
-    description: "PR head commit SHA"
-    required: false
-    default: ''
-  pr_head_ref:
-    description: "PR head branch name"
-    required: false
-    default: ''
-  github_server_url:
-    description: "GitHub server URL"
-    required: false
-    default: ''
   github_token:
     description: "GitHub token for API access"
     required: false
@@ -65,7 +53,6 @@ runs:
       with:
         cache: true
         flutter-version-file: pubspec.yaml
-
       
     - name: Build Android APK/AAB
       shell: bash
@@ -80,9 +67,16 @@ runs:
         flutter build apk --build-name $VERSION_NAME --build-number $VERSION_CODE
         flutter build appbundle --build-name $VERSION_NAME --build-number $VERSION_CODE
         
-        # Check if release APK was built successfully
+        if [ ! -f build/app/outputs/flutter-apk/app-debug.apk ]; then
+          echo "Debug APK build failed"
+          exit 1
+        fi
         if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
           echo "Release APK build failed"
+          exit 1
+        fi
+        if [ ! -f build/app/outputs/bundle/release/app-release.aab ]; then
+          echo "App Bundle build failed"
           exit 1
         fi
 
@@ -90,7 +84,7 @@ runs:
       uses: actions/upload-artifact@v4
       id: upload-apk
       with:
-        name: magic-epaper-apk-pr-${{ inputs.pr_number || 'build' }}
+        name: apk-files
         path: |
           build/app/outputs/flutter-apk/app-debug.apk
           build/app/outputs/flutter-apk/app-release.apk
@@ -101,41 +95,75 @@ runs:
       id: artifacts
       shell: bash
       run: |
-        # Get the run ID for artifact URLs
         RUN_ID=${{ inputs.run_id }}
         REPO=${{ inputs.repository }}
         
-        # Get workflow URL as fallback
         WORKFLOW_URL="https://github.com/$REPO/actions/runs/$RUN_ID"
         
-        # Get direct artifact URL from upload-artifact v4 output
         APK_URL="${{ steps.upload-apk.outputs.artifact-url }}"
         
         echo "WORKFLOW_URL=$WORKFLOW_URL" >> $GITHUB_OUTPUT
         echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
 
-    - name: Create PR comment
+    - name: Remove all previous comments
       if: inputs.pr_number != '' && inputs.github_token != ''
-      uses: peter-evans/create-or-update-comment@v4
+      uses: actions/github-script@v7
       with:
-        token: ${{ inputs.github_token }}
-        issue-number: ${{ inputs.pr_number }}
-        body: |
-          ## Build Status
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const issue_number = parseInt('${{ inputs.pr_number }}');
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
           
-          Build successful. APK to test: **[Download Android APK](${{ steps.artifacts.outputs.APK_URL }})**
-          
-          ---
-          
-          [View workflow run](${{ steps.artifacts.outputs.WORKFLOW_URL }})
+          const comments = await github.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number
+          });
 
-    - name: Build status comment on failure
-      if: failure() && inputs.pr_number != '' && inputs.github_token != ''
-      uses: peter-evans/create-or-update-comment@v4
+          for (const comment of comments.data) {
+            if (comment.user.login === 'github-actions[bot]') {
+              await github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: comment.id
+              });
+            }
+          }
+
+    - name: Build success comment
+      if: success() && inputs.pr_number != '' && inputs.github_token != ''
+      uses: actions/github-script@v7
       with:
-        token: ${{ inputs.github_token }}
-        issue-number: ${{ inputs.pr_number }}
-        body: |
-          ## Build Status
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const issue_number = parseInt('${{ inputs.pr_number }}');
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const apk_url = '${{ steps.artifacts.outputs.APK_URL }}';
+          const workflow_url = '${{ steps.artifacts.outputs.WORKFLOW_URL }}';
           
-          Build failed. Please check the [workflow logs](${{ inputs.github_server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}) for details.
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number,
+            body: `Build successful. APKs to test: **[Download Android APK](${apk_url})** [View workflow run](${workflow_url})`
+          });
+
+    - name: Build failed comment
+      if: failure() && inputs.pr_number != '' && inputs.github_token != ''
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const issue_number = parseInt('${{ inputs.pr_number }}');
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const workflow_url = '${{ steps.artifacts.outputs.WORKFLOW_URL }}';
+
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number,
+            body: `Build workflow failed. Please check the [logs](${workflow_url}) for more information.`
+          });
