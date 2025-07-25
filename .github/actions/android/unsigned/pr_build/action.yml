@@ -78,8 +78,8 @@ runs:
         token: ${{ inputs.github_token }}
         issue-number: ${{ inputs.pr_number }}
         comment-author: 'github-actions[bot]'
-        body-includes: 'Build Artifacts Ready'
-
+        body-includes: 'Build Artifacts Ready' 
+  
     - name: Create or update PR comment
       uses: peter-evans/create-or-update-comment@v4
       with:
@@ -97,7 +97,7 @@ runs:
           ---
           
           [View workflow run](${{ steps.artifacts.outputs.WORKFLOW_URL }})
-
+ 
     - name: Build status comment on failure
       if: failure()
       uses: peter-evans/create-or-update-comment@v4
