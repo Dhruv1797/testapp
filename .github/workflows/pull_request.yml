@@ -31,11 +31,11 @@ jobs:
       - name: Android Workflow
         uses: ./.github/actions/android
 
-  ios:
-    name: iOS Flutter Build
-    needs: common
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: iOS Workflow
-        uses: ./.github/actions/ios
+  # ios:
+  #   name: iOS Flutter Build
+  #   needs: common
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: iOS Workflow
+  #       uses: ./.github/actions/ios
